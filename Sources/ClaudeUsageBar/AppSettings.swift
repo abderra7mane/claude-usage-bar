@@ -24,7 +24,10 @@ final class AppSettings: ObservableObject {
         static let accounts = "accounts"
         static let showPercentages = "showPercentages"
         static let showAccountNames = "showAccountNames"
+        static let refreshInterval = "refreshInterval"
     }
+
+    static let refreshIntervalOptions: [TimeInterval] = [60, 120, 180, 300, 600, 900]
 
     @Published var accounts: [Account] {
         didSet { saveAccounts() }
@@ -38,14 +41,23 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(showAccountNames, forKey: Key.showAccountNames) }
     }
 
+    @Published var refreshInterval: TimeInterval {
+        didSet { UserDefaults.standard.set(refreshInterval, forKey: Key.refreshInterval) }
+    }
+
     @Published private(set) var launchAtLogin: Bool
     @Published private(set) var launchAtLoginError: String?
 
     init() {
         let defaults = UserDefaults.standard
-        defaults.register(defaults: [Key.showPercentages: true, Key.showAccountNames: true])
+        defaults.register(defaults: [
+            Key.showPercentages: true,
+            Key.showAccountNames: true,
+            Key.refreshInterval: 180,
+        ])
         showPercentages = defaults.bool(forKey: Key.showPercentages)
         showAccountNames = defaults.bool(forKey: Key.showAccountNames)
+        refreshInterval = defaults.double(forKey: Key.refreshInterval)
         launchAtLogin = SMAppService.mainApp.status == .enabled
 
         if let data = defaults.data(forKey: Key.accounts),

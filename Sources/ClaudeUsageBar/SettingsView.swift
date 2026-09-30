@@ -75,6 +75,11 @@ struct SettingsView: View {
             }
 
             Section("General") {
+                Picker("Refresh every", selection: $settings.refreshInterval) {
+                    ForEach(AppSettings.refreshIntervalOptions, id: \.self) { interval in
+                        Text("\(Int(interval / 60)) min").tag(interval)
+                    }
+                }
                 Toggle("Launch at login", isOn: Binding(
                     get: { settings.launchAtLogin },
                     set: { settings.setLaunchAtLogin($0) }

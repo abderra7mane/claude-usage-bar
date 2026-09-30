@@ -14,6 +14,9 @@ final class AppModel: ObservableObject {
         settings.$accounts
             .sink { [weak self] accounts in self?.sync(with: accounts) }
             .store(in: &subscriptions)
+        settings.$refreshInterval
+            .sink { [weak self] interval in self?.monitors.values.forEach { $0.pollInterval = interval } }
+            .store(in: &subscriptions)
     }
 
     func monitor(for account: Account) -> UsageMonitor? {
@@ -35,7 +38,7 @@ final class AppModel: ObservableObject {
             monitorSubscriptions[id] = nil
         }
         for account in accounts where monitors[account.id] == nil {
-            let monitor = UsageMonitor(configDirectory: account.url)
+            let monitor = UsageMonitor(configDirectory: account.url, pollInterval: settings.refreshInterval)
             monitors[account.id] = monitor
             monitorSubscriptions[account.id] = monitor.objectWillChange
                 .sink { [weak self] in self?.objectWillChange.send() }

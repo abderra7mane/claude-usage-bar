@@ -38,7 +38,6 @@ final class UsageMonitor: ObservableObject {
         }
     }
 
-    static let pollInterval: TimeInterval = 180
     static let retryInterval: TimeInterval = 60
     static let maxBackoff: TimeInterval = 900
 
@@ -49,22 +48,41 @@ final class UsageMonitor: ObservableObject {
     @Published private(set) var isRefreshing = false
 
     let configDirectory: URL
+    var pollInterval: TimeInterval {
+        didSet { if pollInterval != oldValue { reschedule() } }
+    }
     private let client = UsageClient()
     private var pollTask: Task<Void, Never>?
-    private var backoff = pollInterval
+    private var backoff: TimeInterval
 
-    init(configDirectory: URL) {
+    init(configDirectory: URL, pollInterval: TimeInterval) {
         self.configDirectory = configDirectory
+        self.pollInterval = pollInterval
+        backoff = pollInterval
     }
 
     func start() {
+        schedule(after: 0)
+    }
+
+    private func schedule(after initialDelay: TimeInterval) {
         pollTask?.cancel()
         pollTask = Task { [weak self] in
+            var delay = initialDelay
             while !Task.isCancelled {
-                guard let delay = await self?.refresh() else { return }
                 try? await Task.sleep(for: .seconds(delay))
+                guard !Task.isCancelled, let next = await self?.refresh() else { return }
+                delay = next
             }
         }
+    }
+
+    /// Applies a new poll interval to the pending wait, counted from the last successful refresh.
+    /// Retry and backoff waits are left as they are.
+    private func reschedule() {
+        guard pollTask != nil, !isRefreshing, problem == nil, let lastUpdated else { return }
+        backoff = pollInterval
+        schedule(after: max(0, pollInterval - Date.now.timeIntervalSince(lastUpdated)))
     }
 
     func stop() {
@@ -109,15 +127,15 @@ final class UsageMonitor: ObservableObject {
             report = try await client.fetch(accessToken: credentials.accessToken)
             lastUpdated = .now
             problem = nil
-            backoff = Self.pollInterval
-            return Self.pollInterval
+            backoff = pollInterval
+            return pollInterval
         } catch UsageClientError.unauthorized {
             problem = .unauthorized
             report = nil
             return Self.retryInterval
         } catch UsageClientError.rateLimited(let retryAfter) {
             problem = .rateLimited
-            backoff = min(backoff * 2, Self.maxBackoff)
+            backoff = min(backoff * 2, max(Self.maxBackoff, pollInterval))
             return max(retryAfter ?? 0, backoff)
         } catch UsageClientError.http(let status) {
             problem = .failed("Anthropic returned HTTP \(status).")
@@ -126,7 +144,7 @@ final class UsageMonitor: ObservableObject {
             problem = .failed("Unexpected response from Anthropic.")
             return Self.retryInterval
         } catch {
-            if Task.isCancelled { return Self.pollInterval }
+            if Task.isCancelled { return pollInterval }
             problem = .failed(error.localizedDescription)
             return Self.retryInterval
         }

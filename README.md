@@ -32,5 +32,5 @@ Open `Package.swift` in Xcode to edit and debug.
 ## How it works
 
 - Reads each folder's OAuth token from the keychain via `/usr/bin/security`: `Claude Code-credentials` for `~/.claude`, `Claude Code-credentials-<first 8 hex chars of sha256(folder path)>` for other folders. Falls back to `<folder>/.credentials.json`.
-- Polls `GET https://api.anthropic.com/api/oauth/usage` every 3 minutes, the same undocumented endpoint Claude Code's `/usage` uses. It may change without notice.
+- Polls `GET https://api.anthropic.com/api/oauth/usage` every 3 minutes by default (configurable in Settings), the same undocumented endpoint Claude Code's `/usage` uses. It may change without notice.
 - The token is never refreshed by this app, because refreshing rotates it and would log Claude Code out. When it expires, the app shows the last values and asks you to run `claude`.
