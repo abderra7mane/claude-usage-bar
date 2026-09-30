@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:claude-usage-bar}",
+            "name": "Debug ClaudeUsageBar",
+            "target": "ClaudeUsageBar",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug ClaudeUsageBar"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:claude-usage-bar}",
+            "name": "Release ClaudeUsageBar",
+            "target": "ClaudeUsageBar",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release ClaudeUsageBar"
+        }
+    ]
+}
