@@ -7,44 +7,85 @@ struct UsagePanel: View {
     let openSettings: () -> Void
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Claude Usage").font(.headline)
-
-                if settings.accounts.isEmpty {
-                    Text("No accounts yet. Add a Claude config folder in Settings.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-
-                ForEach(settings.accounts) { account in
-                    if let monitor = model.monitor(for: account) {
-                        Divider()
-                        AccountSection(account: account, monitor: monitor, now: context.date)
-                    }
-                }
-
-                Divider()
-                footer
+        VStack(spacing: 0) {
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                content(now: context.date)
             }
+            .padding(16)
+
+            Divider()
+            footer
         }
-        .padding(16)
         .frame(width: 320)
     }
 
-    private var footer: some View {
+    private func content(now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            header
+
+            if settings.accounts.isEmpty {
+                Text("No accounts yet. Add a Claude config folder in Settings.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            ForEach(settings.accounts) { account in
+                if let monitor = model.monitor(for: account) {
+                    Divider()
+                    AccountSection(account: account, monitor: monitor, now: now)
+                }
+            }
+        }
+    }
+
+    private var header: some View {
         HStack {
-            Button("Settings…", action: openSettings)
+            Text("Claude Usage").font(.headline)
             Spacer()
             Button {
                 model.refreshAll()
             } label: {
                 Image(systemName: "arrow.clockwise")
             }
+            .buttonStyle(.borderless)
             .help("Refresh all")
-            Button("Quit") { NSApp.terminate(nil) }
         }
-        .controlSize(.small)
+    }
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            Button("Settings…", action: openSettings)
+            Button("Quit Claude Usage Bar") { NSApp.terminate(nil) }
+        }
+        .buttonStyle(MenuRowButtonStyle())
+        .padding(6)
+    }
+}
+
+/// Full-width row highlighted on hover, like a menu item.
+private struct MenuRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        MenuRow(configuration: configuration)
+    }
+
+    private struct MenuRow: View {
+        let configuration: Configuration
+        @State private var isHovered = false
+
+        var body: some View {
+            configuration.label
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .foregroundStyle(isHovered ? Color.white : Color.primary)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(isHovered ? Color.accentColor : .clear)
+                        .opacity(configuration.isPressed ? 0.8 : 1)
+                )
+                .contentShape(Rectangle())
+                .onHover { isHovered = $0 }
+        }
     }
 }
 
