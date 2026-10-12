@@ -14,7 +14,7 @@ Each account is a Claude Code config folder (`CLAUDE_CONFIG_DIR`), e.g. `~/.clau
 
 ## Install
 
-Download `ClaudeUsageBar.dmg` from the [latest release](https://github.com/abderra7mane/claude-usage-bar/releases/latest), open it and drag the app to Applications. The app isn't notarized, so clear the quarantine flag before the first launch:
+Download the DMG for your Mac from the [latest release](https://github.com/abderra7mane/claude-usage-bar/releases/latest): `ClaudeUsageBar-arm64.dmg` for Apple Silicon, `ClaudeUsageBar-x86_64.dmg` for Intel or `ClaudeUsageBar-universal.dmg` for both. Open it and drag the app to Applications. The app isn't notarized, so clear the quarantine flag before the first launch:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/ClaudeUsageBar.app
@@ -34,7 +34,7 @@ make test      # run unit tests
 make run       # build build/ClaudeUsageBar.app and open it
 make install   # copy to /Applications and open it
 make uninstall
-make dist      # build build/ClaudeUsageBar.dmg
+make dist      # build build/ClaudeUsageBar.dmg for this Mac; ARCH=arm64, x86_64 or universal builds build/ClaudeUsageBar-<arch>.dmg
 make icon      # regenerate Resources/AppIcon.icns from Scripts/generate-icon.swift and Scripts/claude-symbol.svg
 ```
 
@@ -48,7 +48,7 @@ Open `Package.swift` in Xcode to edit and debug.
 
 ## Releasing
 
-Updates are delivered with [Sparkle](https://sparkle-project.org). Releases publish `ClaudeUsageBar.dmg` and an EdDSA-signed `appcast.xml`, and the app reads the appcast of the latest release, so the repo must be public.
+Updates are delivered with [Sparkle](https://sparkle-project.org). Releases publish a DMG for Apple Silicon, Intel and universal Macs, plus EdDSA-signed appcasts: `appcast.xml` for Apple Silicon and `appcast-x86_64.xml` for Intel. The app reads the appcast of the latest release for the architecture it runs as, so universal installs update to that architecture's build. The repo must be public.
 
 One-time setup:
 
@@ -56,7 +56,7 @@ One-time setup:
 2. Export the private key with `.build/artifacts/sparkle/Sparkle/bin/generate_keys --account claude-usage-bar -x sparkle.key`.
 3. In the repo's Settings → Secrets and variables → Actions, add the secret `SPARKLE_PRIVATE_KEY` with the contents of `sparkle.key` and the variable `SPARKLE_PUBLIC_KEY` with the public key. Then delete `sparkle.key`.
 
-To release, push a `v*` tag, e.g. `git tag v1.0.0 && git push origin v1.0.0`. The Release workflow runs the tests, builds the DMG with the tag's version and publishes it with the appcast. Local builds have no public key and don't check for updates.
+To release, push a `v*` tag, e.g. `git tag v1.0.0 && git push origin v1.0.0`. The Release workflow runs the tests, builds the DMGs with the tag's version and publishes them with the appcasts. Local builds have no public key and don't check for updates.
 
 ## License
 

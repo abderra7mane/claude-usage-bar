@@ -29,14 +29,14 @@ jobs:
       - name: Test
         run: make test
 
-      - name: Build the DMG
+      - name: Build the DMGs
         run: |
-          make dist \
+          make release-dmgs \
             VERSION="${GITHUB_REF_NAME#v}" \
             BUILD_NUMBER="${{ github.run_number }}" \
             SPARKLE_PUBLIC_KEY="${{ vars.SPARKLE_PUBLIC_KEY }}"
 
-      - name: Generate the appcast
+      - name: Generate the appcasts
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: make appcast REPO="$GITHUB_REPOSITORY" TAG="$GITHUB_REF_NAME"
@@ -45,6 +45,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          cat > build/notes.md <<'NOTES'
+          Download the DMG for your Mac:
+
+          - `ClaudeUsageBar-arm64.dmg`: Apple Silicon (M1 and later).
+          - `ClaudeUsageBar-x86_64.dmg`: Intel.
+          - `ClaudeUsageBar-universal.dmg`: both, at about twice the size.
+
+          NOTES
           gh release create "$GITHUB_REF_NAME" \
-            build/ClaudeUsageBar.dmg build/appcast/appcast.xml \
-            --title "$GITHUB_REF_NAME" --generate-notes
+            build/ClaudeUsageBar-*.dmg build/appcast/appcast.xml build/appcast/appcast-x86_64.xml \
+            --title "$GITHUB_REF_NAME" --notes "$(cat build/notes.md)" --generate-notes
