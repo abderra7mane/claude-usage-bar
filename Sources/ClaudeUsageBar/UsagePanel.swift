@@ -58,7 +58,7 @@ struct UsagePanel: View {
         VStack(spacing: 0) {
             Button("Settings…", action: openSettings)
             if updater.isEnabled {
-                Button("Check for Updates…", action: checkForUpdates)
+                Button(updater.updateAvailable ? "Install Update…" : "Check for Updates…", action: checkForUpdates)
                     .disabled(!updater.canCheckForUpdates)
             }
             Button("Quit Claude Usage Bar") { NSApp.terminate(nil) }

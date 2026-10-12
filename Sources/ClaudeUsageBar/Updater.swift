@@ -7,8 +7,11 @@ import Sparkle
 final class Updater: ObservableObject {
     let isEnabled = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") != nil
     @Published private(set) var canCheckForUpdates = false
+    /// A scheduled check found an update the user hasn't looked at yet.
+    @Published private(set) var updateAvailable = false
 
     private let feed = ArchitectureFeed()
+    private let reminder = UpdateReminder()
     private let controller: SPUStandardUpdaterController
 
     var automaticallyChecksForUpdates: Bool {
@@ -23,8 +26,9 @@ final class Updater: ObservableObject {
         controller = SPUStandardUpdaterController(
             startingUpdater: false,
             updaterDelegate: feed,
-            userDriverDelegate: nil
+            userDriverDelegate: reminder
         )
+        reminder.onChange = { [weak self] in self?.updateAvailable = $0 }
         guard isEnabled else { return }
         controller.startUpdater()
         controller.updater.publisher(for: \.canCheckForUpdates)
@@ -33,6 +37,40 @@ final class Updater: ObservableObject {
 
     func checkForUpdates() {
         controller.checkForUpdates(nil)
+    }
+}
+
+/// Shows scheduled updates right away only when Sparkle would bring them into immediate focus, otherwise
+/// leaves them to the menu bar indicator until the user checks for updates.
+@MainActor
+private final class UpdateReminder: NSObject, @preconcurrency SPUStandardUserDriverDelegate {
+    var onChange: ((Bool) -> Void)?
+
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverShouldHandleShowingScheduledUpdate(
+        _ update: SUAppcastItem,
+        andInImmediateFocus immediateFocus: Bool
+    ) -> Bool {
+        immediateFocus
+    }
+
+    func standardUserDriverWillHandleShowingUpdate(
+        _ handleShowingUpdate: Bool,
+        forUpdate update: SUAppcastItem,
+        state: SPUUserUpdateState
+    ) {
+        if !handleShowingUpdate {
+            onChange?(true)
+        }
+    }
+
+    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
+        onChange?(false)
+    }
+
+    func standardUserDriverWillFinishUpdateSession() {
+        onChange?(false)
     }
 }
 

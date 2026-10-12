@@ -8,6 +8,7 @@ import SwiftUI
 final class StatusItemController: NSObject {
     private let model: AppModel
     private let settings: AppSettings
+    private let updater: Updater
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
     private var subscriptions = Set<AnyCancellable>()
@@ -16,6 +17,7 @@ final class StatusItemController: NSObject {
     init(model: AppModel, updater: Updater, openSettings: @escaping () -> Void) {
         self.model = model
         self.settings = model.settings
+        self.updater = updater
         super.init()
 
         let panel = UsagePanel(
@@ -41,7 +43,7 @@ final class StatusItemController: NSObject {
         statusItem.button?.imagePosition = .imageOnly
 
         model.objectWillChange
-            .merge(with: settings.objectWillChange)
+            .merge(with: settings.objectWillChange, updater.objectWillChange)
             .receive(on: RunLoop.main)
             .sink { [weak self] in self?.render() }
             .store(in: &subscriptions)
@@ -69,10 +71,14 @@ final class StatusItemController: NSObject {
                 dimmed: monitor?.problem?.needsLogin == true
             )
         }
-        button.image = StatusIcon.image(entries: entries, now: now)
-        button.toolTip = shown.isEmpty
-            ? "Claude Usage Bar: no account shown in the menu bar"
-            : shown.map { tooltip(account: $0, monitor: model.monitor(for: $0), now: now) }.joined(separator: "\n\n")
+        button.image = StatusIcon.image(entries: entries, updateAvailable: updater.updateAvailable, now: now)
+        var tooltips = shown.isEmpty
+            ? ["Claude Usage Bar: no account shown in the menu bar"]
+            : shown.map { tooltip(account: $0, monitor: model.monitor(for: $0), now: now) }
+        if updater.updateAvailable {
+            tooltips.append("A new version of Claude Usage Bar is available")
+        }
+        button.toolTip = tooltips.joined(separator: "\n\n")
     }
 
     private func percentages(_ report: UsageReport?, now: Date) -> String {
