@@ -5,15 +5,17 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController {
     private let model: AppModel
+    private let updater: Updater
     private var window: NSWindow?
 
-    init(model: AppModel) {
+    init(model: AppModel, updater: Updater) {
         self.model = model
+        self.updater = updater
     }
 
     func show() {
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView(model: model, settings: model.settings))
+            let hosting = NSHostingController(rootView: SettingsView(model: model, settings: model.settings, updater: updater))
             let window = NSWindow(contentViewController: hosting)
             window.title = "Claude Usage Bar Settings"
             window.styleMask = [.titled, .closable]
@@ -29,6 +31,7 @@ final class SettingsWindowController {
 struct SettingsView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var settings: AppSettings
+    @ObservedObject var updater: Updater
 
     var body: some View {
         let suggestions = settings.suggestedFolders
@@ -86,6 +89,9 @@ struct SettingsView: View {
                 ))
                 if let error = settings.launchAtLoginError {
                     Text(error).font(.caption).foregroundStyle(.red)
+                }
+                if updater.isEnabled {
+                    Toggle("Check for updates automatically", isOn: $updater.automaticallyChecksForUpdates)
                 }
             }
         }

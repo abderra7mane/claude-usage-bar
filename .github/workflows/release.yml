@@ -13,13 +13,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check the release settings
+        env:
+          SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+          HAS_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
+        run: |
+          missing=()
+          [ -n "$SPARKLE_PUBLIC_KEY" ] || missing+=("variable SPARKLE_PUBLIC_KEY")
+          [ "$HAS_PRIVATE_KEY" = "true" ] || missing+=("secret SPARKLE_PRIVATE_KEY")
+          if [ ${#missing[@]} -gt 0 ]; then
+            printf '::error::Missing %s\n' "${missing[@]}"
+            exit 1
+          fi
+
       - name: Test
         run: make test
 
-      - name: Build
-        run: make dist VERSION="${GITHUB_REF_NAME#v}" BUILD_NUMBER="${{ github.run_number }}"
+      - name: Build the DMG
+        run: |
+          make dist \
+            VERSION="${GITHUB_REF_NAME#v}" \
+            BUILD_NUMBER="${{ github.run_number }}" \
+            SPARKLE_PUBLIC_KEY="${{ vars.SPARKLE_PUBLIC_KEY }}"
+
+      - name: Generate the appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: make appcast REPO="$GITHUB_REPOSITORY" TAG="$GITHUB_REF_NAME"
 
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" build/ClaudeUsageBar.zip --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            build/ClaudeUsageBar.dmg build/appcast/appcast.xml \
+            --title "$GITHUB_REF_NAME" --generate-notes

@@ -17,11 +17,12 @@ enum ClaudeUsageBarApp {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppModel(settings: AppSettings())
-    private lazy var settingsWindow = SettingsWindowController(model: model)
+    private let updater = Updater()
+    private lazy var settingsWindow = SettingsWindowController(model: model, updater: updater)
     private var statusItemController: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItemController = StatusItemController(model: model) { [weak self] in
+        statusItemController = StatusItemController(model: model, updater: updater) { [weak self] in
             self?.settingsWindow.show()
         }
 

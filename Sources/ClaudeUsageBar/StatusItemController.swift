@@ -13,15 +13,24 @@ final class StatusItemController: NSObject {
     private var subscriptions = Set<AnyCancellable>()
     private var clock: Timer?
 
-    init(model: AppModel, openSettings: @escaping () -> Void) {
+    init(model: AppModel, updater: Updater, openSettings: @escaping () -> Void) {
         self.model = model
         self.settings = model.settings
         super.init()
 
-        let panel = UsagePanel(model: model, settings: settings) { [weak self] in
-            self?.popover.performClose(nil)
-            openSettings()
-        }
+        let panel = UsagePanel(
+            model: model,
+            settings: settings,
+            updater: updater,
+            openSettings: { [weak self] in
+                self?.popover.performClose(nil)
+                openSettings()
+            },
+            checkForUpdates: { [weak self] in
+                self?.popover.performClose(nil)
+                updater.checkForUpdates()
+            }
+        )
         let hosting = NSHostingController(rootView: panel)
         hosting.sizingOptions = .preferredContentSize
         popover.contentViewController = hosting

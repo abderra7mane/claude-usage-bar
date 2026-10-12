@@ -4,7 +4,9 @@ import SwiftUI
 struct UsagePanel: View {
     @ObservedObject var model: AppModel
     @ObservedObject var settings: AppSettings
+    @ObservedObject var updater: Updater
     let openSettings: () -> Void
+    let checkForUpdates: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,6 +57,10 @@ struct UsagePanel: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Button("Settings…", action: openSettings)
+            if updater.isEnabled {
+                Button("Check for Updates…", action: checkForUpdates)
+                    .disabled(!updater.canCheckForUpdates)
+            }
             Button("Quit Claude Usage Bar") { NSApp.terminate(nil) }
         }
         .buttonStyle(MenuRowButtonStyle())
@@ -70,17 +76,19 @@ private struct MenuRowButtonStyle: ButtonStyle {
 
     private struct MenuRow: View {
         let configuration: Configuration
+        @Environment(\.isEnabled) private var isEnabled
         @State private var isHovered = false
 
         var body: some View {
+            let isHighlighted = isHovered && isEnabled
             configuration.label
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .foregroundStyle(isHovered ? Color.white : Color.primary)
+                .foregroundStyle(isHighlighted ? Color.white : isEnabled ? Color.primary : Color.secondary)
                 .background(
                     RoundedRectangle(cornerRadius: 5)
-                        .fill(isHovered ? Color.accentColor : .clear)
+                        .fill(isHighlighted ? Color.accentColor : .clear)
                         .opacity(configuration.isPressed ? 0.8 : 1)
                 )
                 .contentShape(Rectangle())
