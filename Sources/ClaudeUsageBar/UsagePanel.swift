@@ -7,6 +7,7 @@ struct UsagePanel: View {
     @ObservedObject var updater: Updater
     let openSettings: () -> Void
     let checkForUpdates: () -> Void
+    let showAbout: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -61,6 +62,7 @@ struct UsagePanel: View {
                 Button(updater.updateAvailable ? "Install Update…" : "Check for Updates…", action: checkForUpdates)
                     .disabled(!updater.canCheckForUpdates)
             }
+            Button("About Claude Usage Bar", action: showAbout)
             Button("Quit Claude Usage Bar") { NSApp.terminate(nil) }
         }
         .buttonStyle(MenuRowButtonStyle())

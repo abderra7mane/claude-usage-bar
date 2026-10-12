@@ -93,6 +93,7 @@ struct SettingsView: View {
                 if updater.isEnabled {
                     Toggle("Check for updates automatically", isOn: $updater.automaticallyChecksForUpdates)
                 }
+                LabeledContent("Version", value: Bundle.main.appVersion)
             }
         }
         .formStyle(.grouped)
@@ -166,5 +167,13 @@ private struct AccountStatus: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+private extension Bundle {
+    var appVersion: String {
+        let version = object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+        guard let build = object(forInfoDictionaryKey: "CFBundleVersion") as? String else { return version }
+        return "\(version) (\(build))"
     }
 }

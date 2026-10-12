@@ -31,6 +31,11 @@ final class StatusItemController: NSObject {
             checkForUpdates: { [weak self] in
                 self?.popover.performClose(nil)
                 updater.checkForUpdates()
+            },
+            showAbout: { [weak self] in
+                self?.popover.performClose(nil)
+                NSApp.activate()
+                NSApp.orderFrontStandardAboutPanel(nil)
             }
         )
         let hosting = NSHostingController(rootView: panel)
