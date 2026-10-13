@@ -25,7 +25,12 @@ final class UsageNotifier: NSObject, ObservableObject, UNUserNotificationCenterD
 
     func refreshAuthorization() async {
         guard isAvailable else { return }
-        isDenied = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .denied
+        isDenied = await Self.authorizationStatus() == .denied
+    }
+
+    /// Reads the settings off the main actor, since `UNNotificationSettings` isn't `Sendable` in older SDKs.
+    private nonisolated static func authorizationStatus() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
     }
 
     func openSystemSettings() {
