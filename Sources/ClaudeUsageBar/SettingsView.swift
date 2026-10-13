@@ -15,7 +15,12 @@ final class SettingsWindowController {
 
     func show() {
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView(model: model, settings: model.settings, updater: updater))
+            let hosting = NSHostingController(rootView: SettingsView(
+                model: model,
+                settings: model.settings,
+                notifier: model.notifier,
+                updater: updater
+            ))
             let window = NSWindow(contentViewController: hosting)
             window.title = "Claude Usage Bar Settings"
             window.styleMask = [.titled, .closable]
@@ -25,12 +30,14 @@ final class SettingsWindowController {
         }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
+        Task { await model.notifier.refreshAuthorization() }
     }
 }
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var settings: AppSettings
+    @ObservedObject var notifier: UsageNotifier
     @ObservedObject var updater: Updater
 
     var body: some View {
@@ -75,6 +82,27 @@ struct SettingsView: View {
             Section("Menu bar") {
                 Toggle("Show account names", isOn: $settings.showAccountNames)
                 Toggle("Show percentages", isOn: $settings.showPercentages)
+            }
+
+            if notifier.isAvailable {
+                Section {
+                    Toggle("Notify when usage gets high", isOn: $settings.notificationsEnabled)
+                    if settings.notificationsEnabled && notifier.isDenied {
+                        HStack {
+                            Text("Notifications are turned off in System Settings.")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                            Spacer()
+                            Button("Open System Settings", action: notifier.openSystemSettings)
+                        }
+                    }
+                } header: {
+                    Text("Notifications")
+                } footer: {
+                    Text("Notifies at \(UsageAlert.thresholds.map(UsageFormat.percent).formatted(.list(type: .and))) of the session and weekly limits.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section("General") {

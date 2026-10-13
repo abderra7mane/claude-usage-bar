@@ -16,6 +16,23 @@ struct UsageLevelTests {
     }
 }
 
+struct UsageAlertTests {
+    @Test(arguments: [
+        (70.0, 74.9, nil),
+        (74.0, 76.0, 75.0),
+        (74.9, 75.0, 75.0),
+        (75.0, 79.0, nil),
+        (76.0, 76.0, nil),
+        (74.0, 92.0, 90.0),
+        (96.0, 120.0, 100.0),
+        (90.0, 10.0, nil),
+        (0.0, 100.0, 100.0),
+    ] as [(Double, Double, Double?)])
+    func crossedThreshold(previous: Double, current: Double, expected: Double?) {
+        #expect(UsageAlert.threshold(crossedFrom: previous, to: current) == expected)
+    }
+}
+
 struct UsageReportTests {
     let json = """
     {

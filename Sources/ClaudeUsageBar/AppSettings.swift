@@ -25,6 +25,7 @@ final class AppSettings: ObservableObject {
         static let showPercentages = "showPercentages"
         static let showAccountNames = "showAccountNames"
         static let refreshInterval = "refreshInterval"
+        static let notificationsEnabled = "notificationsEnabled"
     }
 
     static let refreshIntervalOptions: [TimeInterval] = [60, 120, 180, 300, 600, 900]
@@ -45,6 +46,10 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(refreshInterval, forKey: Key.refreshInterval) }
     }
 
+    @Published var notificationsEnabled: Bool {
+        didSet { UserDefaults.standard.set(notificationsEnabled, forKey: Key.notificationsEnabled) }
+    }
+
     @Published private(set) var launchAtLogin: Bool
     @Published private(set) var launchAtLoginError: String?
 
@@ -54,10 +59,12 @@ final class AppSettings: ObservableObject {
             Key.showPercentages: true,
             Key.showAccountNames: true,
             Key.refreshInterval: 180,
+            Key.notificationsEnabled: true,
         ])
         showPercentages = defaults.bool(forKey: Key.showPercentages)
         showAccountNames = defaults.bool(forKey: Key.showAccountNames)
         refreshInterval = defaults.double(forKey: Key.refreshInterval)
+        notificationsEnabled = defaults.bool(forKey: Key.notificationsEnabled)
         launchAtLogin = SMAppService.mainApp.status == .enabled
 
         if let data = defaults.data(forKey: Key.accounts),

@@ -1,3 +1,4 @@
+import ClaudeUsageCore
 import Combine
 import Foundation
 
@@ -5,8 +6,9 @@ import Foundation
 @MainActor
 final class AppModel: ObservableObject {
     let settings: AppSettings
+    let notifier = UsageNotifier()
     private(set) var monitors: [Account.ID: UsageMonitor] = [:]
-    private var monitorSubscriptions: [Account.ID: AnyCancellable] = [:]
+    private var monitorSubscriptions: [Account.ID: [AnyCancellable]] = [:]
     private var subscriptions = Set<AnyCancellable>()
 
     init(settings: AppSettings) {
@@ -16,6 +18,10 @@ final class AppModel: ObservableObject {
             .store(in: &subscriptions)
         settings.$refreshInterval
             .sink { [weak self] interval in self?.monitors.values.forEach { $0.pollInterval = interval } }
+            .store(in: &subscriptions)
+        settings.$notificationsEnabled
+            .filter { $0 }
+            .sink { [weak self] _ in self?.notifier.requestAuthorization() }
             .store(in: &subscriptions)
     }
 
@@ -40,10 +46,28 @@ final class AppModel: ObservableObject {
         for account in accounts where monitors[account.id] == nil {
             let monitor = UsageMonitor(configDirectory: account.url, pollInterval: settings.refreshInterval)
             monitors[account.id] = monitor
-            monitorSubscriptions[account.id] = monitor.objectWillChange
-                .sink { [weak self] in self?.objectWillChange.send() }
+            monitorSubscriptions[account.id] = [
+                monitor.objectWillChange
+                    .sink { [weak self] in self?.objectWillChange.send() },
+                monitor.$report.zip(monitor.$report.dropFirst())
+                    .sink { [weak self] in self?.usageChanged(for: account.id, from: $0, to: $1) },
+            ]
             monitor.start()
         }
         objectWillChange.send()
+    }
+
+    private func usageChanged(for id: Account.ID, from previous: UsageReport?, to current: UsageReport?) {
+        guard settings.notificationsEnabled,
+              let previous,
+              let current,
+              let account = settings.accounts.first(where: { $0.id == id })
+        else { return }
+        notifier.usageChanged(
+            for: account,
+            showsAccountName: settings.accounts.count > 1,
+            from: previous,
+            to: current
+        )
     }
 }

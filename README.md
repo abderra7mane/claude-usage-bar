@@ -8,6 +8,10 @@ A macOS menu bar app that shows your Claude plan usage for the 5-hour session an
 
 The top bar in the icon is the session, the bottom bar is the week. Click it for details and reset times.
 
+## Notifications
+
+The app notifies you when the session or weekly usage passes 75%, 80%, 85%, 90%, 95% and 100%. If usage jumps past several of them between two checks, you get one notification for the highest. Turn them off in Settings.
+
 ## Multiple subscriptions
 
 Each account is a Claude Code config folder (`CLAUDE_CONFIG_DIR`), e.g. `~/.claude` and `~/.claude-work`. Manage them in **Settings…**: add folders, pick from detected `~/.claude*` folders, rename them, and choose which ones get a menu bar item. Accounts that are logged out or have an expired token are dimmed and offer a "Copy login command" button.
