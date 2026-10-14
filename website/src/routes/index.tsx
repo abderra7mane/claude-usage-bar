@@ -16,10 +16,8 @@ import {
   builds,
   level,
   levelColor,
-  quarantineCommand,
   releasesUrl,
   repo,
-  useCopy,
   useDetectedArch,
   useLatestRelease,
   type Arch,
@@ -863,12 +861,6 @@ function GetStarted() {
   const detected = useDetectedArch();
   const [picked, setPicked] = useState<Arch | null>(null);
   const arch = picked ?? detected;
-  const { copied, copy } = useCopy();
-  const steps = [
-    "Open the DMG and drag Claude Usage Bar to Applications.",
-    "The app isn’t notarized, so clear its quarantine flag once with the command below.",
-    "Open it. It appears in the menu bar and updates itself from then on.",
-  ];
   return (
     <section
       id="download"
@@ -940,76 +932,6 @@ function GetStarted() {
           Download for {builds[arch].label}
         </a>
       </div>
-
-      <ol className="mx-auto mt-20 grid max-w-5xl gap-10 md:grid-cols-3">
-        {steps.map((step, i) => (
-          <li key={step}>
-            <div className="flex items-center gap-4">
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#1d1d1f] text-sm font-semibold text-white dark:bg-white dark:text-black">
-                {i + 1}
-              </span>
-              {i < steps.length - 1 && (
-                <span className="hidden h-px flex-1 bg-black/15 md:block dark:bg-white/15" />
-              )}
-            </div>
-            <p className="mt-4 leading-relaxed">{step}</p>
-          </li>
-        ))}
-      </ol>
-
-      <div className="mx-auto mt-12 max-w-5xl overflow-hidden rounded-2xl bg-[#1d1d1f] text-white shadow-[0_24px_60px_-30px_rgba(0,0,0,.5)] ring-1 ring-black/10 dark:bg-[#1c1c1e] dark:ring-white/10">
-        <div className="flex h-11 items-center gap-2 border-b border-white/10 px-4">
-          <span className="size-3 rounded-full bg-[#ff5f57]" />
-          <span className="size-3 rounded-full bg-[#febc2e]" />
-          <span className="size-3 rounded-full bg-[#28c840]" />
-          <span className="flex-1 text-center text-xs text-white/45">
-            Terminal — zsh
-          </span>
-          <button
-            type="button"
-            onClick={() => copy(quarantineCommand)}
-            className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
-            aria-label="Copy command"
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              {copied ? (
-                <path d="m3.5 8.5 3 3 6-7" />
-              ) : (
-                <>
-                  <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
-                  <path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" />
-                </>
-              )}
-            </svg>
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-        <pre className="overflow-x-auto px-5 py-5 font-mono text-[13px] leading-relaxed sm:text-sm">
-          <span className="text-[#30d158]">~</span>{" "}
-          <span className="text-white/40">$</span>{" "}
-          <span className="font-semibold">xattr</span>{" "}
-          <span className="text-[#ff9f0a]">-dr</span>{" "}
-          <span className="text-white/70">com.apple.quarantine</span>{" "}
-          <span className="text-[#64d2ff]">
-            /Applications/ClaudeUsageBar.app
-          </span>
-        </pre>
-      </div>
-      <p className={`mx-auto mt-4 max-w-5xl text-sm ${tertiary}`}>
-        macOS marks downloaded apps as quarantined and blocks ones that aren’t
-        notarized. This removes the mark from Claude Usage Bar only, and you
-        only need it before the first launch.
-      </p>
 
       <p className={`mt-12 text-center text-sm ${tertiary}`}>
         Looking for an older version?{" "}

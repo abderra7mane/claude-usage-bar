@@ -23,9 +23,6 @@ export const builds: Record<Arch, { label: string; url: string }> = {
 
 export const archs: Arch[] = ["arm64", "x86_64", "universal"];
 
-export const quarantineCommand =
-  "xattr -dr com.apple.quarantine /Applications/ClaudeUsageBar.app";
-
 type Level = "ok" | "warning" | "critical";
 
 export function level(percent: number): Level {
@@ -95,18 +92,4 @@ export function useDetectedArch() {
       .catch(() => {});
   }, []);
   return arch;
-}
-
-export function useCopy() {
-  const [copied, setCopied] = useState<string | null>(null);
-  const copy = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(text);
-      setTimeout(
-        () => setCopied((value) => (value === text ? null : value)),
-        1600,
-      );
-    });
-  };
-  return { copied, copy };
 }
