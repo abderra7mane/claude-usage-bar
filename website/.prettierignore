@@ -1,0 +1,6 @@
+.output
+.vercel
+.nitro
+.tanstack
+src/routeTree.gen.ts
+pnpm-lock.yaml
