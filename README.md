@@ -12,6 +12,10 @@ The top bar in the icon is the session, the bottom bar is the week. Click it for
 
 The app notifies you when the session or weekly usage passes 75%, 80%, 85%, 90%, 95% and 100%. If usage jumps past several of them between two checks, you get one notification for the highest. Turn them off in Settings.
 
+## Prompt cache timers
+
+Claude Code's prompt cache expires 1 hour after a session's last request; the next message then re-writes the whole context at a higher price. The panel's **Cache timers** tab shows one bar per session with a live cache, full with an hour left and empty when it expires. The app notifies you 5 minutes before a session's cache expires, once per expiry, so you can send it a message to keep it. Turn the alerts off in Settings.
+
 ## Multiple subscriptions
 
 Each account is a Claude Code config folder (`CLAUDE_CONFIG_DIR`), e.g. `~/.claude` and `~/.claude-work`. Manage them in **Settings…**: add folders, pick from detected `~/.claude*` folders, rename them, and choose which ones get a menu bar item. Accounts that are logged out or have an expired token are dimmed and offer a "Copy login command" button.
@@ -48,6 +52,7 @@ Open `Package.swift` in Xcode to edit and debug.
 
 - Reads each folder's OAuth token from the keychain via `/usr/bin/security`: `Claude Code-credentials` for `~/.claude`, `Claude Code-credentials-<first 8 hex chars of sha256(folder path)>` for other folders. Falls back to `<folder>/.credentials.json`.
 - Polls `GET https://api.anthropic.com/api/oauth/usage` every 3 minutes by default (configurable in Settings), the same undocumented endpoint Claude Code's `/usage` uses. It may change without notice.
+- Finds sessions from the transcripts in each folder's `projects/`: the timestamp of the last assistant message is the last request, read from the end of transcripts changed in the past hour, every 30 seconds. Sessions in paid usage overage use a 5-minute cache, which the timers don't account for.
 - The token is never refreshed by this app, because refreshing rotates it and would log Claude Code out. When it expires, the app shows the last values and asks you to run `claude`.
 
 ## Releasing

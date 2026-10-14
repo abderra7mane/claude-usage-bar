@@ -31,6 +31,12 @@ enum UsageFormat {
         return hours > 0 ? "Resets in \(hours)h \(minutes)m" : "Resets in \(max(minutes, 1))m"
     }
 
+    /// Rounds up, so "1m" still shows until the time is fully up.
+    static func remaining(_ interval: TimeInterval) -> String {
+        let minutes = Int((interval / 60).rounded(.up))
+        return minutes >= 60 ? "\(minutes / 60)h" : "\(minutes)m"
+    }
+
     static func updated(_ date: Date?, now: Date) -> String {
         guard let date else { return "Not updated yet" }
         let seconds = now.timeIntervalSince(date)

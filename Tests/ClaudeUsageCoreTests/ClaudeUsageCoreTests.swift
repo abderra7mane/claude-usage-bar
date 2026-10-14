@@ -152,3 +152,93 @@ struct ConfigDirectoryTests {
         #expect(found == [".claude-a", ".claude-b"])
     }
 }
+
+struct PromptCacheTests {
+    let lastRequest = Date(timeIntervalSince1970: 100_000)
+
+    var session: CacheSession {
+        CacheSession(
+            id: "/tmp/s.jsonl",
+            configDirectory: URL(fileURLWithPath: "/tmp"),
+            title: nil,
+            workingDirectory: "/Users/me/Projects/app",
+            lastRequest: lastRequest
+        )
+    }
+
+    @Test func expiresAnHourAfterTheLastRequest() {
+        #expect(session.expiresAt == lastRequest.addingTimeInterval(3600))
+        #expect(session.fraction(at: lastRequest) == 1)
+        #expect(session.fraction(at: lastRequest.addingTimeInterval(1800)) == 0.5)
+        #expect(session.isExpired(at: lastRequest.addingTimeInterval(3600)))
+        #expect(session.fraction(at: lastRequest.addingTimeInterval(4000)) == 0)
+        #expect(session.projectName == "app")
+    }
+
+    @Test(arguments: [
+        (2699.0, false, UsageLevel.ok),
+        (3299.0, false, .warning),
+        (3300.0, true, .critical),
+        (2701.0, false, .warning),
+        (3599.0, true, .critical),
+        (3600.0, false, .critical),
+    ])
+    func alertsInTheLastFiveMinutes(elapsed: Double, due: Bool, level: UsageLevel) {
+        let now = lastRequest.addingTimeInterval(elapsed)
+        #expect(session.isAlertDue(at: now) == due)
+        #expect(session.level(at: now) == level)
+    }
+}
+
+struct TranscriptTailTests {
+    @Test func readsTitleDirectoryAndLastRequest() throws {
+        let lines = """
+        al","cwd":"/partial"}
+        {"type":"ai-title","aiTitle":"Generated title","sessionId":"s"}
+        {"type":"assistant","timestamp":"2026-10-14T10:46:45.444Z","cwd":"/a","message":{"model":"claude-opus-5-5"}}
+        {"type":"custom-title","customTitle":"Renamed","sessionId":"s"}
+        {"type":"user","timestamp":"2026-10-14T10:50:00.000Z","cwd":"/b"}
+        {"type":"assistant","timestamp":"2026-10-14T10:51:00.000Z","cwd":"/b","message":{"model":"<synthetic>"}}
+        {"type":"mode","mode":"normal","sessionId":"s"}
+        """
+        let tail = TranscriptTail.parse(Data(lines.utf8))
+
+        #expect(tail.title == "Renamed")
+        #expect(tail.workingDirectory == "/b")
+        let lastRequest = try #require(tail.lastRequest)
+        #expect(abs(lastRequest.timeIntervalSince1970 - 1_791_974_805.444) < 0.001)
+    }
+
+    @Test func withoutRequestsHasNoLastRequest() {
+        let tail = TranscriptTail.parse(Data(#"{"type":"user","timestamp":"2026-10-14T10:50:00Z","cwd":"/b"}"#.utf8))
+
+        #expect(tail.lastRequest == nil)
+        #expect(tail.title == nil)
+    }
+
+    @Test func scansRecentTranscripts() async throws {
+        let fileManager = FileManager.default
+        let config = fileManager.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? fileManager.removeItem(at: config) }
+        let project = config.appending(path: "projects/-tmp-app")
+        try fileManager.createDirectory(at: project, withIntermediateDirectories: true)
+
+        let now = Date.now
+        func write(_ name: String, lastRequest: Date) throws {
+            let timestamp = lastRequest.formatted(.iso8601)
+            let line = #"{"type":"assistant","timestamp":"\#(timestamp)","cwd":"/tmp/app","message":{"model":"m"}}"#
+            let url = project.appending(path: name)
+            try Data(line.utf8).write(to: url)
+            try fileManager.setAttributes([.modificationDate: lastRequest], ofItemAtPath: url.path)
+        }
+        try write("live.jsonl", lastRequest: now.addingTimeInterval(-600))
+        try write("soon.jsonl", lastRequest: now.addingTimeInterval(-3400))
+        try write("expired.jsonl", lastRequest: now.addingTimeInterval(-4000))
+        try Data("{}".utf8).write(to: project.appending(path: "notes.txt"))
+
+        let sessions = await TranscriptScanner().sessions(in: [config], now: now)
+
+        #expect(sessions.map { URL(fileURLWithPath: $0.id).lastPathComponent } == ["soon.jsonl", "live.jsonl"])
+        #expect(sessions.allSatisfy { $0.configDirectory == config && $0.workingDirectory == "/tmp/app" })
+    }
+}

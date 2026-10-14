@@ -2,19 +2,39 @@ import ClaudeUsageCore
 import SwiftUI
 
 struct UsagePanel: View {
+    private enum Tab {
+        case usage
+        case cacheTimers
+    }
+
     @ObservedObject var model: AppModel
     @ObservedObject var settings: AppSettings
     @ObservedObject var updater: Updater
     let openSettings: () -> Void
     let checkForUpdates: () -> Void
     let showAbout: () -> Void
+    @State private var tab = Tab.usage
 
     var body: some View {
         VStack(spacing: 0) {
-            TimelineView(.periodic(from: .now, by: 30)) { context in
-                content(now: context.date)
+            Picker("View", selection: $tab) {
+                Text("Usage").tag(Tab.usage)
+                Text("Cache timers").tag(Tab.cacheTimers)
             }
-            .padding(16)
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding([.horizontal, .top], 16)
+
+            switch tab {
+            case .usage:
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    content(now: context.date)
+                }
+                .padding(16)
+            case .cacheTimers:
+                CacheTimersView(monitor: model.cacheMonitor)
+                    .padding(16)
+            }
 
             Divider()
             footer
@@ -214,7 +234,7 @@ private struct WindowRow: View {
     }
 }
 
-private struct UsageBar: View {
+struct UsageBar: View {
     let fraction: Double
     let color: Color
 
