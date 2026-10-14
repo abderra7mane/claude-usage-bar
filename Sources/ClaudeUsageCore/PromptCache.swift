@@ -169,9 +169,10 @@ public actor TranscriptScanner {
         var sessions: [CacheSession] = []
         for transcript in transcripts {
             let summary = read(transcript.url, into: &next)
-            let subagentsCost = Self.subagentTranscripts(of: transcript.url)
-                .map { read($0, into: &next).cost }
-                .reduce(0, +)
+            var subagentsCost = 0.0
+            for subagent in Self.subagentTranscripts(of: transcript.url) {
+                subagentsCost += read(subagent, into: &next).cost
+            }
             guard let lastRequest = summary.lastRequest else { continue }
             sessions.append(CacheSession(
                 id: transcript.url.path,
