@@ -6,23 +6,17 @@ const download = `${repo}/releases/latest/download`;
 
 export type Arch = "arm64" | "x86_64" | "universal";
 
-export const builds: Record<
-  Arch,
-  { label: string; file: string; url: string }
-> = {
+export const builds: Record<Arch, { label: string; url: string }> = {
   arm64: {
     label: "Apple Silicon",
-    file: "ClaudeUsageBar-arm64.dmg",
     url: `${download}/ClaudeUsageBar-arm64.dmg`,
   },
   x86_64: {
     label: "Intel",
-    file: "ClaudeUsageBar-x86_64.dmg",
     url: `${download}/ClaudeUsageBar-x86_64.dmg`,
   },
   universal: {
     label: "Universal",
-    file: "ClaudeUsageBar-universal.dmg",
     url: `${download}/ClaudeUsageBar-universal.dmg`,
   },
 };

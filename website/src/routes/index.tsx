@@ -939,9 +939,6 @@ function GetStarted() {
           <AppleLogo className="-mt-0.5 size-5" />
           Download for {builds[arch].label}
         </a>
-        <p className={`mt-3 font-mono text-xs ${tertiary}`}>
-          {builds[arch].file}
-        </p>
       </div>
 
       <ol className="mx-auto mt-20 grid max-w-5xl gap-10 md:grid-cols-3">
