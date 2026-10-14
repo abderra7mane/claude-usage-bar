@@ -12,9 +12,11 @@ The top bar in the icon is the session, the bottom bar is the week. Click it for
 
 The app notifies you when the session or weekly usage passes 75%, 80%, 85%, 90%, 95% and 100%. If usage jumps past several of them between two checks, you get one notification for the highest. Turn them off in Settings.
 
-## Prompt cache timers
+## Sessions
 
-Claude Code's prompt cache expires 1 hour after a session's last request; the next message then re-writes the whole context at a higher price. The panel's **Cache timers** tab shows one bar per session with a live cache, full with an hour left and empty when it expires. The app notifies you 5 minutes before a session's cache expires, once per expiry, so you can send it a message to keep it. Turn the alerts off in Settings.
+Claude Code's prompt cache expires 1 hour after a session's last request; the next message then re-writes the whole context at a higher price. The panel's **Sessions** tab shows one bar per running session with a live cache, full with an hour left and empty when it expires, next to the session's cost. The app notifies you 5 minutes before a session's cache expires, once per expiry, so you can send it a message to keep it. Turn the alerts off in Settings.
+
+The cost is estimated at API prices from the token usage in the session's transcripts, subagents included. It can read lower than Claude Code's own total: subagent transcripts often keep only the usage reported when a response started, and a few requests (title generation, away summaries) aren't recorded in transcripts.
 
 ## Multiple subscriptions
 

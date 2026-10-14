@@ -162,6 +162,7 @@ struct PromptCacheTests {
             configDirectory: URL(fileURLWithPath: "/tmp"),
             title: nil,
             workingDirectory: "/Users/me/Projects/app",
+            startedAt: lastRequest,
             lastRequest: lastRequest
         )
     }
@@ -190,7 +191,7 @@ struct PromptCacheTests {
     }
 }
 
-struct TranscriptTailTests {
+struct TranscriptSummaryTests {
     @Test func readsTitleDirectoryAndLastRequest() throws {
         let lines = """
         al","cwd":"/partial"}
@@ -201,19 +202,79 @@ struct TranscriptTailTests {
         {"type":"assistant","timestamp":"2026-10-14T10:51:00.000Z","cwd":"/b","message":{"model":"<synthetic>"}}
         {"type":"mode","mode":"normal","sessionId":"s"}
         """
-        let tail = TranscriptTail.parse(Data(lines.utf8))
+        var summary = TranscriptSummary()
+        summary.consume(Data(lines.utf8))
 
-        #expect(tail.title == "Renamed")
-        #expect(tail.workingDirectory == "/b")
-        let lastRequest = try #require(tail.lastRequest)
+        #expect(summary.title == "Renamed")
+        #expect(summary.workingDirectory == "/b")
+        let lastRequest = try #require(summary.lastRequest)
         #expect(abs(lastRequest.timeIntervalSince1970 - 1_791_974_805.444) < 0.001)
+        let startedAt = try #require(summary.startedAt)
+        #expect(abs(startedAt.timeIntervalSince1970 - 1_791_974_805.444) < 0.001)
     }
 
     @Test func withoutRequestsHasNoLastRequest() {
-        let tail = TranscriptTail.parse(Data(#"{"type":"user","timestamp":"2026-10-14T10:50:00Z","cwd":"/b"}"#.utf8))
+        var summary = TranscriptSummary()
+        summary.consume(Data(#"{"type":"user","timestamp":"2026-10-14T10:50:00Z","cwd":"/b"}"#.utf8))
 
-        #expect(tail.lastRequest == nil)
-        #expect(tail.title == nil)
+        #expect(summary.lastRequest == nil)
+        #expect(summary.title == nil)
+    }
+
+    @Test func countsEachResponseOnce() {
+        let usage = #"{"input_tokens":1000000,"output_tokens":1000000,"cache_read_input_tokens":1000000,"cache_creation_input_tokens":2000000,"cache_creation":{"ephemeral_1h_input_tokens":1000000}}"#
+        let lines = """
+        {"type":"assistant","requestId":"r1","message":{"id":"m1","model":"claude-opus-5-5","usage":\(usage)}}
+        {"type":"assistant","requestId":"r1","message":{"id":"m1","model":"claude-opus-5-5","usage":\(usage)}}
+        {"type":"assistant","message":{"id":"m2","model":"<synthetic>","usage":\(usage)}}
+        {"type":"assistant","message":{"id":"m3","model":"unknown-model","usage":\(usage)}}
+        """
+        var summary = TranscriptSummary()
+        summary.consume(Data(lines.utf8))
+
+        // 4 input + 20 output + 0.2 read + 5 five-minute write + 8 one-hour write
+        #expect(abs(summary.cost - 37.2) < 0.0001)
+    }
+
+    @Test(arguments: [
+        ("claude-opus-5-5", 24.0),
+        ("claude-opus-5", 30.0),
+        ("claude-haiku-4-5-20251001", 6.0),
+    ])
+    func pricesByLongestPrefix(model: String, cost: Double) throws {
+        let pricing = try #require(ModelPricing.forModel(model))
+        let usage = try decode(#"{"input_tokens":1000000,"output_tokens":1000000}"#)
+        #expect(abs(pricing.cost(of: usage) - cost) < 0.0001)
+    }
+
+    @Test func pricesFastModeAndLongPrompts() throws {
+        let opus = try #require(ModelPricing.forModel("claude-opus-5-5"))
+        #expect(abs(opus.cost(of: try decode(#"{"output_tokens":1000000,"speed":"fast"}"#)) - 40) < 0.0001)
+
+        let haiku = try #require(ModelPricing.forModel("claude-haiku-5-5"))
+        #expect(abs(haiku.cost(of: try decode(#"{"input_tokens":100000}"#)) - 0.01) < 0.0001)
+        #expect(abs(haiku.cost(of: try decode(#"{"input_tokens":200000}"#)) - 0.1) < 0.0001)
+    }
+
+    private func decode(_ json: String) throws -> TokenUsage {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(TokenUsage.self, from: Data(json.utf8))
+    }
+
+    @Test func readsOnlyCompleteAppendedLines() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).jsonl")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let line = #"{"type":"assistant","message":{"id":"ID","model":"claude-opus-5-5","usage":{"output_tokens":1000000}}}"#
+
+        try Data((line.replacingOccurrences(of: "ID", with: "m1") + "\n" + #"{"type":"assist"#).utf8).write(to: url)
+        var transcript = TrackedTranscript()
+        transcript.update(from: url)
+        #expect(abs(transcript.summary.cost - 20) < 0.0001)
+
+        try Data((line.replacingOccurrences(of: "ID", with: "m1") + "\n" + line.replacingOccurrences(of: "ID", with: "m2") + "\n").utf8).write(to: url)
+        transcript.update(from: url)
+        #expect(abs(transcript.summary.cost - 40) < 0.0001)
     }
 
     @Test func scansRecentTranscripts() async throws {
@@ -226,7 +287,7 @@ struct TranscriptTailTests {
         let now = Date.now
         func write(_ name: String, lastRequest: Date) throws {
             let timestamp = lastRequest.formatted(.iso8601)
-            let line = #"{"type":"assistant","timestamp":"\#(timestamp)","cwd":"/tmp/app","message":{"model":"m"}}"#
+            let line = #"{"type":"assistant","timestamp":"\#(timestamp)","cwd":"/tmp/app","message":{"model":"m"}}"# + "\n"
             let url = project.appending(path: name)
             try Data(line.utf8).write(to: url)
             try fileManager.setAttributes([.modificationDate: lastRequest], ofItemAtPath: url.path)
@@ -248,6 +309,58 @@ struct TranscriptTailTests {
         #expect(sessions.allSatisfy { $0.configDirectory == config && $0.workingDirectory == "/tmp/app" })
     }
 
+    @Test func sortsByStartTime() async throws {
+        let fileManager = FileManager.default
+        let config = fileManager.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? fileManager.removeItem(at: config) }
+        let project = config.appending(path: "projects/-tmp-app")
+        let registry = config.appending(path: "sessions")
+        try fileManager.createDirectory(at: project, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: registry, withIntermediateDirectories: true)
+
+        let now = Date.now
+        func line(_ type: String, _ secondsAgo: Double) -> String {
+            let timestamp = now.addingTimeInterval(-secondsAgo).formatted(.iso8601)
+            return #"{"type":"\#(type)","timestamp":"\#(timestamp)","message":{"model":"m"}}"# + "\n"
+        }
+        try Data((line("user", 3000) + line("assistant", 60)).utf8).write(to: project.appending(path: "old.jsonl"))
+        try Data((line("user", 1200) + line("assistant", 1000)).utf8).write(to: project.appending(path: "new.jsonl"))
+        let pid = ProcessInfo.processInfo.processIdentifier
+        for (index, id) in ["old", "new"].enumerated() {
+            try Data(#"{"pid":\#(pid),"sessionId":"\#(id)"}"#.utf8).write(to: registry.appending(path: "\(index).json"))
+        }
+
+        let sessions = await TranscriptScanner().sessions(in: [config], now: now)
+
+        #expect(sessions.map { URL(fileURLWithPath: $0.id).lastPathComponent } == ["old.jsonl", "new.jsonl"])
+    }
+
+    @Test func addsSubagentCosts() async throws {
+        let fileManager = FileManager.default
+        let config = fileManager.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? fileManager.removeItem(at: config) }
+        let project = config.appending(path: "projects/-tmp-app")
+        let subagents = project.appending(path: "s/subagents")
+        let registry = config.appending(path: "sessions")
+        try fileManager.createDirectory(at: subagents, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: registry, withIntermediateDirectories: true)
+
+        let timestamp = Date.now.addingTimeInterval(-600).formatted(.iso8601)
+        func line(_ id: String) -> String {
+            #"{"type":"assistant","timestamp":"\#(timestamp)","message":{"id":"\#(id)","model":"claude-opus-5-5","usage":{"output_tokens":1000000}}}"# + "\n"
+        }
+        try Data(line("m1").utf8).write(to: project.appending(path: "s.jsonl"))
+        try Data(line("m2").utf8).write(to: subagents.appending(path: "agent-a.jsonl"))
+        try Data("{}".utf8).write(to: subagents.appending(path: "agent-a.meta.json"))
+        let pid = ProcessInfo.processInfo.processIdentifier
+        try Data(#"{"pid":\#(pid),"sessionId":"s"}"#.utf8).write(to: registry.appending(path: "\(pid).json"))
+
+        let sessions = await TranscriptScanner().sessions(in: [config], now: .now)
+
+        #expect(sessions.count == 1)
+        #expect(abs((sessions.first?.cost ?? 0) - 40) < 0.0001)
+    }
+
     @Test func skipsSessionsWithoutARunningProcess() async throws {
         let fileManager = FileManager.default
         let config = fileManager.temporaryDirectory.appending(path: UUID().uuidString)
@@ -259,7 +372,7 @@ struct TranscriptTailTests {
 
         let timestamp = Date.now.addingTimeInterval(-600).formatted(.iso8601)
         for name in ["open", "closed", "crashed"] {
-            let line = #"{"type":"assistant","timestamp":"\#(timestamp)","message":{"model":"m"}}"#
+            let line = #"{"type":"assistant","timestamp":"\#(timestamp)","message":{"model":"m"}}"# + "\n"
             try Data(line.utf8).write(to: project.appending(path: "\(name).jsonl"))
         }
         let alive = ProcessInfo.processInfo.processIdentifier

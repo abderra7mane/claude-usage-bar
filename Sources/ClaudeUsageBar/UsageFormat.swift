@@ -37,6 +37,10 @@ enum UsageFormat {
         return minutes >= 60 ? "\(minutes / 60)h" : "\(minutes)m"
     }
 
+    static func cost(_ dollars: Double) -> String {
+        String(format: "$%.2f", dollars)
+    }
+
     static func updated(_ date: Date?, now: Date) -> String {
         guard let date else { return "Not updated yet" }
         let seconds = now.timeIntervalSince(date)
