@@ -4,7 +4,7 @@ import SwiftUI
 struct UsagePanel: View {
     private enum Tab {
         case usage
-        case cacheTimers
+        case sessions
     }
 
     @ObservedObject var model: AppModel
@@ -19,7 +19,7 @@ struct UsagePanel: View {
         VStack(spacing: 0) {
             Picker("View", selection: $tab) {
                 Text("Usage").tag(Tab.usage)
-                Text("Cache timers").tag(Tab.cacheTimers)
+                Text("Sessions").tag(Tab.sessions)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -31,8 +31,8 @@ struct UsagePanel: View {
                     content(now: context.date)
                 }
                 .padding(16)
-            case .cacheTimers:
-                CacheTimersView(monitor: model.cacheMonitor)
+            case .sessions:
+                SessionsView(monitor: model.cacheMonitor)
                     .padding(16)
             }
 

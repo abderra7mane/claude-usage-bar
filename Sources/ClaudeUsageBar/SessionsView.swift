@@ -1,8 +1,9 @@
 import ClaudeUsageCore
 import SwiftUI
 
-/// One bar per running Claude Code session with a live prompt cache: full with an hour left, empty when it expires.
-struct CacheTimersView: View {
+/// One row per running Claude Code session with a live prompt cache: its cost and a bar that is full with an hour
+/// left and empty when the cache expires.
+struct SessionsView: View {
     private static let rowHeight: CGFloat = 52
     private static let visibleRows = 8
 
@@ -13,6 +14,7 @@ struct CacheTimersView: View {
             let sessions = monitor.sessions.filter { !$0.isExpired(at: context.date) }
             VStack(alignment: .leading, spacing: 14) {
                 header(count: sessions.count)
+                Divider()
 
                 if sessions.isEmpty {
                     Text("No Claude Code session has a live prompt cache.")
@@ -37,7 +39,7 @@ struct CacheTimersView: View {
 
     private func header(count: Int) -> some View {
         HStack {
-            Text("Prompt Caches").font(.headline)
+            Text("Claude Sessions").font(.headline)
             if count > 0 {
                 Text("\(count)")
                     .font(.caption.weight(.medium))
@@ -46,20 +48,27 @@ struct CacheTimersView: View {
                     .background(.quaternary, in: Capsule())
             }
             Spacer()
+            Button {
+                monitor.scanNow()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(.borderless)
+            .help("Refresh")
         }
     }
 
     private func rows(_ sessions: [CacheSession], now: Date) -> some View {
         VStack(spacing: 0) {
             ForEach(sessions) { session in
-                CacheTimerRow(session: session, accountName: monitor.accountName(for: session), now: now)
+                SessionRow(session: session, accountName: monitor.accountName(for: session), now: now)
                     .frame(height: Self.rowHeight)
             }
         }
     }
 }
 
-private struct CacheTimerRow: View {
+private struct SessionRow: View {
     let session: CacheSession
     let accountName: String?
     let now: Date
@@ -74,10 +83,16 @@ private struct CacheTimerRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer()
-                Text(UsageFormat.remaining(session.remaining(at: now)))
-                    .font(.system(.callout, design: .rounded).weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(color)
+                HStack(spacing: 4) {
+                    Text(UsageFormat.cost(session.cost))
+                        .foregroundStyle(.secondary)
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+                    Text(UsageFormat.remaining(session.remaining(at: now)))
+                        .foregroundStyle(color)
+                }
+                .font(.system(.callout, design: .rounded).weight(.semibold))
+                .monospacedDigit()
             }
             UsageBar(fraction: session.fraction(at: now), color: color)
             Text(details)
