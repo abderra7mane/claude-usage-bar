@@ -7,10 +7,10 @@ import Sparkle
 final class Updater: ObservableObject {
     let isEnabled = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") != nil
     @Published private(set) var canCheckForUpdates = false
-    /// A scheduled check found an update the user hasn't looked at yet.
+    /// A check found an update the user hasn't installed or skipped yet.
     @Published private(set) var updateAvailable = false
 
-    private let feed = ArchitectureFeed()
+    private let events = UpdaterEvents()
     private let reminder = UpdateReminder()
     private let controller: SPUStandardUpdaterController
 
@@ -25,10 +25,10 @@ final class Updater: ObservableObject {
     init() {
         controller = SPUStandardUpdaterController(
             startingUpdater: false,
-            updaterDelegate: feed,
+            updaterDelegate: events,
             userDriverDelegate: reminder
         )
-        reminder.onChange = { [weak self] in self?.updateAvailable = $0 }
+        events.onChange = { [weak self] in self?.updateAvailable = $0 }
         guard isEnabled else { return }
         controller.startUpdater()
         controller.updater.publisher(for: \.canCheckForUpdates)
@@ -44,8 +44,6 @@ final class Updater: ObservableObject {
 /// leaves them to the menu bar indicator until the user checks for updates.
 @MainActor
 private final class UpdateReminder: NSObject, @preconcurrency SPUStandardUserDriverDelegate {
-    var onChange: ((Bool) -> Void)?
-
     var supportsGentleScheduledUpdateReminders: Bool { true }
 
     func standardUserDriverShouldHandleShowingScheduledUpdate(
@@ -59,24 +57,35 @@ private final class UpdateReminder: NSObject, @preconcurrency SPUStandardUserDri
         _ handleShowingUpdate: Bool,
         forUpdate update: SUAppcastItem,
         state: SPUUserUpdateState
+    ) {}
+}
+
+/// Tracks whether an update is available: dismissing it keeps the indicator, installing or skipping it clears it.
+@MainActor
+private final class UpdaterEvents: NSObject, SPUUpdaterDelegate {
+    var onChange: ((Bool) -> Void)?
+
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        onChange?(true)
+    }
+
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        onChange?(false)
+    }
+
+    func updater(
+        _ updater: SPUUpdater,
+        userDidMake choice: SPUUserUpdateChoice,
+        forUpdate updateItem: SUAppcastItem,
+        state: SPUUserUpdateState
     ) {
-        if !handleShowingUpdate {
-            onChange?(true)
+        if choice != .dismiss {
+            onChange?(false)
         }
     }
 
-    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
-        onChange?(false)
-    }
-
-    func standardUserDriverWillFinishUpdateSession() {
-        onChange?(false)
-    }
-}
-
-/// Apple Silicon reads `SUFeedURL`; Intel reads its own appcast next to it. A universal build follows the
-/// architecture it runs as, so it updates to that architecture's build.
-private final class ArchitectureFeed: NSObject, SPUUpdaterDelegate {
+    /// Apple Silicon reads `SUFeedURL`; Intel reads its own appcast next to it. A universal build follows the
+    /// architecture it runs as, so it updates to that architecture's build.
     func feedURLString(for updater: SPUUpdater) -> String? {
         #if arch(x86_64)
         guard let feed = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String,
