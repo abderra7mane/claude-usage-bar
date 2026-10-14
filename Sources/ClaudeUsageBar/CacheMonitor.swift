@@ -5,8 +5,6 @@ import Foundation
 /// Tracks the prompt cache of every recent Claude Code session and notifies shortly before one expires.
 @MainActor
 final class CacheMonitor: ObservableObject {
-    static let scanInterval: TimeInterval = 30
-
     @Published private(set) var sessions: [CacheSession] = []
 
     private let settings: AppSettings
@@ -14,7 +12,8 @@ final class CacheMonitor: ObservableObject {
     private let scanner = TranscriptScanner()
     /// Session id → the expiry an alert was sent for, so each expiry window alerts once.
     private var alerted: [CacheSession.ID: Date] = [:]
-    private var scanTask: Task<Void, Never>?
+    private var watcher: TranscriptWatcher?
+    private var wakeTask: Task<Void, Never>?
     private var subscriptions = Set<AnyCancellable>()
 
     init(settings: AppSettings, notifier: UsageNotifier) {
@@ -22,18 +21,18 @@ final class CacheMonitor: ObservableObject {
         self.notifier = notifier
         settings.$accounts
             .dropFirst()
-            .sink { [weak self] _ in self?.scanNow() }
+            .sink { [weak self] accounts in self?.watch(accounts.map(\.url)) }
             .store(in: &subscriptions)
     }
 
     func start() {
-        scanTask?.cancel()
-        scanTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.scan()
-                try? await Task.sleep(for: .seconds(Self.scanInterval))
-            }
-        }
+        watcher = TranscriptWatcher { [weak self] in self?.scanNow() }
+        watch(settings.accounts.map(\.url))
+    }
+
+    private func watch(_ configDirectories: [URL]) {
+        watcher?.watch(configDirectories)
+        scanNow()
     }
 
     func scanNow() {
@@ -46,6 +45,19 @@ final class CacheMonitor: ObservableObject {
         let found = await scanner.sessions(in: directories, now: now)
         sessions = found
         alertIfDue(found, now: now)
+        scheduleWake(for: found, now: now)
+    }
+
+    /// Transcripts don't change when an alert falls due or a cache expires, so scan again at the next of those moments.
+    private func scheduleWake(for sessions: [CacheSession], now: Date) {
+        wakeTask?.cancel()
+        let moments = sessions.flatMap { [$0.expiresAt.addingTimeInterval(-PromptCache.alertLeadTime), $0.expiresAt] }
+        guard let next = moments.filter({ $0 > now }).min() else { return }
+        wakeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(next.timeIntervalSince(now)))
+            guard !Task.isCancelled else { return }
+            await self?.scan()
+        }
     }
 
     private func alertIfDue(_ sessions: [CacheSession], now: Date) {
