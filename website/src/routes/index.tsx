@@ -132,7 +132,6 @@ function Home() {
       <Tour />
       <Details />
       <GetStarted />
-      <Faq />
 
       <footer
         className={`border-t border-black/10 px-6 py-10 pb-28 text-sm dark:border-white/10 ${tertiary}`}
@@ -175,9 +174,6 @@ function Header({
             className="hover:text-black dark:hover:text-white"
           >
             Install
-          </a>
-          <a href="#faq" className="hover:text-black dark:hover:text-white">
-            FAQ
           </a>
           <a href={repo} className="hover:text-black dark:hover:text-white">
             GitHub
@@ -939,61 +935,6 @@ function GetStarted() {
           All releases
         </a>
       </p>
-    </section>
-  );
-}
-
-const faqs = [
-  {
-    q: "Where do the numbers come from?",
-    a: "From the same plan usage endpoint Claude Code’s /usage command reads, using the token Claude Code already stores in your keychain. The endpoint is undocumented, so it may change without notice.",
-  },
-  {
-    q: "Will it log me out of Claude Code?",
-    a: "No. The app reads the token but never refreshes it, because refreshing would rotate it and log Claude Code out. When the token expires, the app keeps the last values and asks you to run claude.",
-  },
-  {
-    q: "Why do I need the quarantine command?",
-    a: "The app isn’t notarized by Apple, so macOS blocks the first launch of a downloaded copy. Clearing the quarantine flag once lets it open. Updates are verified with Sparkle’s EdDSA signatures.",
-  },
-  {
-    q: "Which download should I pick?",
-    a: "Apple Silicon for M-series Macs, Intel for Intel Macs. Universal runs on both; it updates to the build for the architecture it runs as.",
-  },
-  {
-    q: "Why can a session cost read lower than Claude Code’s?",
-    a: "Costs are estimated at API prices from the token usage in the session’s transcripts. Subagent transcripts often keep only the usage reported when a response started, and a few requests aren’t recorded at all.",
-  },
-  {
-    q: "Does the cache timer cover paid overage?",
-    a: "No. Sessions in paid usage overage use a 5-minute cache, which the timers don’t account for.",
-  },
-];
-
-function Faq() {
-  return (
-    <section id="faq" className="scroll-mt-12 px-6 py-28">
-      <div className="mx-auto grid max-w-5xl gap-12 lg:grid-cols-[1fr_1.6fr]">
-        <h2 className={sectionTitle}>Questions, answered.</h2>
-        <div className="divide-y divide-black/10 border-y border-black/10 dark:divide-white/10 dark:border-white/10">
-          {faqs.map((faq) => (
-            <details key={faq.q} className="group py-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-lg font-medium [&::-webkit-details-marker]:hidden">
-                {faq.q}
-                <span
-                  className={`shrink-0 text-2xl leading-none transition group-open:rotate-45 ${tertiary}`}
-                  aria-hidden
-                >
-                  +
-                </span>
-              </summary>
-              <p className={`mt-3 max-w-xl leading-relaxed ${secondary}`}>
-                {faq.a}
-              </p>
-            </details>
-          ))}
-        </div>
-      </div>
     </section>
   );
 }
