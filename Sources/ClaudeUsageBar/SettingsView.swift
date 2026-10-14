@@ -85,9 +85,16 @@ struct SettingsView: View {
             }
 
             if notifier.isAvailable {
-                Section {
-                    Toggle("Notify when usage gets high", isOn: $settings.notificationsEnabled)
-                    if settings.notificationsEnabled && notifier.isDenied {
+                Section("Notifications") {
+                    Toggle(isOn: $settings.notificationsEnabled) {
+                        Text("Notify when usage gets high")
+                        Text("From \(UsageFormat.percent(UsageAlert.thresholds[0])) of the session and weekly limits, every 5%.")
+                    }
+                    Toggle(isOn: $settings.cacheAlertsEnabled) {
+                        Text("Notify before prompt caches expire")
+                        Text("\(UsageFormat.remaining(PromptCache.alertLeadTime)) before a Claude Code session's prompt cache expires.")
+                    }
+                    if (settings.notificationsEnabled || settings.cacheAlertsEnabled) && notifier.isDenied {
                         HStack {
                             Text("Notifications are turned off in System Settings.")
                                 .font(.caption)
@@ -96,12 +103,6 @@ struct SettingsView: View {
                             Button("Open System Settings", action: notifier.openSystemSettings)
                         }
                     }
-                } header: {
-                    Text("Notifications")
-                } footer: {
-                    Text("Notifies at \(UsageAlert.thresholds.map(UsageFormat.percent).formatted(.list(type: .and))) of the session and weekly limits.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
 

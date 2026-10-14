@@ -2,7 +2,7 @@ import AppKit
 import ClaudeUsageCore
 import UserNotifications
 
-/// Notifies when an account's usage passes one of `UsageAlert.thresholds`.
+/// Notifies when an account's usage passes one of `UsageAlert.thresholds`, and before a prompt cache expires.
 @MainActor
 final class UsageNotifier: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     /// `UNUserNotificationCenter` needs an app bundle, so it's unavailable to `swift run`.
@@ -59,6 +59,27 @@ final class UsageNotifier: NSObject, ObservableObject, UNUserNotificationCenterD
             let request = UNNotificationRequest(identifier: "\(account.id)-\(name)", content: content, trigger: nil)
             UNUserNotificationCenter.current().add(request)
         }
+    }
+
+    func cacheExpiring(_ session: CacheSession, accountName: String?, now: Date) {
+        guard isAvailable else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Prompt cache expires in \(UsageFormat.remaining(session.remaining(at: now)))"
+        content.subtitle = [accountName, session.title ?? session.projectName].compactMap { $0 }.joined(separator: " · ")
+        content.body = session.workingDirectory.map { ConfigDirectory.displayPath(URL(fileURLWithPath: $0)) }
+            ?? "Send a message to the session to keep it."
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: cacheAlertIdentifier(session.id), content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    func removeCacheAlert(for sessionID: CacheSession.ID) {
+        guard isAvailable else { return }
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [cacheAlertIdentifier(sessionID)])
+    }
+
+    private func cacheAlertIdentifier(_ sessionID: CacheSession.ID) -> String {
+        "cache-\(sessionID)"
     }
 
     nonisolated func userNotificationCenter(

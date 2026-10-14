@@ -2,17 +2,19 @@ import ClaudeUsageCore
 import Combine
 import Foundation
 
-/// Keeps one running `UsageMonitor` per configured account.
+/// Keeps one running `UsageMonitor` per configured account, and the `CacheMonitor` across all of them.
 @MainActor
 final class AppModel: ObservableObject {
     let settings: AppSettings
     let notifier = UsageNotifier()
+    let cacheMonitor: CacheMonitor
     private(set) var monitors: [Account.ID: UsageMonitor] = [:]
     private var monitorSubscriptions: [Account.ID: [AnyCancellable]] = [:]
     private var subscriptions = Set<AnyCancellable>()
 
     init(settings: AppSettings) {
         self.settings = settings
+        cacheMonitor = CacheMonitor(settings: settings, notifier: notifier)
         settings.$accounts
             .sink { [weak self] accounts in self?.sync(with: accounts) }
             .store(in: &subscriptions)
@@ -20,9 +22,11 @@ final class AppModel: ObservableObject {
             .sink { [weak self] interval in self?.monitors.values.forEach { $0.pollInterval = interval } }
             .store(in: &subscriptions)
         settings.$notificationsEnabled
-            .filter { $0 }
+            .combineLatest(settings.$cacheAlertsEnabled)
+            .filter { $0 || $1 }
             .sink { [weak self] _ in self?.notifier.requestAuthorization() }
             .store(in: &subscriptions)
+        cacheMonitor.start()
     }
 
     func monitor(for account: Account) -> UsageMonitor? {
@@ -35,6 +39,7 @@ final class AppModel: ObservableObject {
 
     func refreshIfStale() {
         monitors.values.forEach { $0.refreshIfStale() }
+        cacheMonitor.scanNow()
     }
 
     private func sync(with accounts: [Account]) {
