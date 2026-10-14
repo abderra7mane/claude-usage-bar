@@ -100,7 +100,7 @@ public struct TranscriptTail: Equatable {
     }
 }
 
-/// Finds Claude Code sessions whose prompt cache hasn't expired, from the transcripts in each config
+/// Finds running Claude Code sessions whose prompt cache hasn't expired, from the transcripts in each config
 /// folder's `projects/<project>/<session>.jsonl`. Only transcripts changed since the last scan are read.
 public actor TranscriptScanner {
     static let tailSize = 256 * 1024
@@ -126,10 +126,31 @@ public actor TranscriptScanner {
         }
         cache = next
 
+        let running = Set(configDirectories.flatMap(Self.runningSessionIDs))
         return next.values
             .compactMap(\.session)
-            .filter { !$0.isExpired(at: now) }
+            .filter { !$0.isExpired(at: now) && running.contains(URL(fileURLWithPath: $0.id).deletingPathExtension().lastPathComponent) }
             .sorted { $0.expiresAt < $1.expiresAt }
+    }
+
+    /// Claude Code registers each running process in `<config>/sessions/<pid>.json` with the id of the
+    /// session it has open. A process that crashed can leave its file behind, so the pid must still be alive.
+    static func runningSessionIDs(in configDirectory: URL) -> [String] {
+        struct Registration: Decodable {
+            let pid: Int32
+            let sessionId: String
+        }
+
+        let folder = configDirectory.appending(path: "sessions", directoryHint: .isDirectory)
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        return files.compactMap { url in
+            guard url.pathExtension == "json",
+                  let data = try? Data(contentsOf: url),
+                  let registration = try? JSONDecoder().decode(Registration.self, from: data),
+                  kill(registration.pid, 0) == 0 || errno == EPERM
+            else { return nil }
+            return registration.sessionId
+        }
     }
 
     static func transcripts(in configDirectory: URL, modifiedAfter cutoff: Date) -> [(url: URL, modified: Date)] {
