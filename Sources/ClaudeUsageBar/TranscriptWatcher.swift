@@ -1,13 +1,15 @@
 import CoreServices
 import Foundation
 
-/// Calls `onChange` on the main actor when a transcript changes under a config folder's `projects`.
+/// Calls `onChange` on the main actor when a transcript changes under a config folder's `projects`, or a
+/// Claude Code process starts or quits, which updates its `sessions` registration.
 final class TranscriptWatcher {
     /// Coalesces the burst of writes Claude Code makes during a turn into one call.
     private static let latency: CFTimeInterval = 2
 
     private let onChange: @MainActor @Sendable () -> Void
     private var projectPrefixes: [String] = []
+    private var sessionPrefixes: [String] = []
     private var stream: FSEventStreamRef?
 
     init(onChange: @escaping @MainActor @Sendable () -> Void) {
@@ -22,6 +24,7 @@ final class TranscriptWatcher {
         stop()
         let directories = configDirectories.map(Self.realPath)
         projectPrefixes = directories.map { $0 + "/projects/" }
+        sessionPrefixes = directories.map { $0 + "/sessions/" }
         guard !directories.isEmpty else { return }
 
         var context = FSEventStreamContext(
@@ -64,10 +67,11 @@ final class TranscriptWatcher {
 
     private func handle(paths: [String], flags: [FSEventStreamEventFlags]) {
         let dropped = flags.contains { $0 & FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs) != 0 }
-        let transcriptChanged = paths.contains { path in
-            path.hasSuffix(".jsonl") && projectPrefixes.contains { path.hasPrefix($0) }
+        let relevant = paths.contains { path in
+            (path.hasSuffix(".jsonl") && projectPrefixes.contains { path.hasPrefix($0) })
+                || (path.hasSuffix(".json") && sessionPrefixes.contains { path.hasPrefix($0) })
         }
-        guard dropped || transcriptChanged else { return }
+        guard dropped || relevant else { return }
         let onChange = onChange
         MainActor.assumeIsolated { onChange() }
     }

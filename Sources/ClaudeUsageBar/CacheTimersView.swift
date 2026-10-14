@@ -1,7 +1,7 @@
 import ClaudeUsageCore
 import SwiftUI
 
-/// One bar per Claude Code session with a live prompt cache: full with an hour left, empty when it expires.
+/// One bar per running Claude Code session with a live prompt cache: full with an hour left, empty when it expires.
 struct CacheTimersView: View {
     private static let rowHeight: CGFloat = 52
     private static let visibleRows = 8

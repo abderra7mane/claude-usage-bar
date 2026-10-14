@@ -2,7 +2,7 @@ import ClaudeUsageCore
 import Combine
 import Foundation
 
-/// Tracks the prompt cache of every recent Claude Code session and notifies shortly before one expires.
+/// Tracks the prompt cache of every running Claude Code session and notifies shortly before one expires.
 @MainActor
 final class CacheMonitor: ObservableObject {
     @Published private(set) var sessions: [CacheSession] = []

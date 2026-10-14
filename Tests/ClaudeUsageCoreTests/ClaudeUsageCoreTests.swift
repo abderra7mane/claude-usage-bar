@@ -235,10 +235,39 @@ struct TranscriptTailTests {
         try write("soon.jsonl", lastRequest: now.addingTimeInterval(-3400))
         try write("expired.jsonl", lastRequest: now.addingTimeInterval(-4000))
         try Data("{}".utf8).write(to: project.appending(path: "notes.txt"))
+        let registry = config.appending(path: "sessions")
+        try fileManager.createDirectory(at: registry, withIntermediateDirectories: true)
+        let pid = ProcessInfo.processInfo.processIdentifier
+        for (index, id) in ["live", "soon", "expired"].enumerated() {
+            try Data(#"{"pid":\#(pid),"sessionId":"\#(id)"}"#.utf8).write(to: registry.appending(path: "\(index).json"))
+        }
 
         let sessions = await TranscriptScanner().sessions(in: [config], now: now)
 
         #expect(sessions.map { URL(fileURLWithPath: $0.id).lastPathComponent } == ["soon.jsonl", "live.jsonl"])
         #expect(sessions.allSatisfy { $0.configDirectory == config && $0.workingDirectory == "/tmp/app" })
+    }
+
+    @Test func skipsSessionsWithoutARunningProcess() async throws {
+        let fileManager = FileManager.default
+        let config = fileManager.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? fileManager.removeItem(at: config) }
+        let project = config.appending(path: "projects/-tmp-app")
+        let registry = config.appending(path: "sessions")
+        try fileManager.createDirectory(at: project, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: registry, withIntermediateDirectories: true)
+
+        let timestamp = Date.now.addingTimeInterval(-600).formatted(.iso8601)
+        for name in ["open", "closed", "crashed"] {
+            let line = #"{"type":"assistant","timestamp":"\#(timestamp)","message":{"model":"m"}}"#
+            try Data(line.utf8).write(to: project.appending(path: "\(name).jsonl"))
+        }
+        let alive = ProcessInfo.processInfo.processIdentifier
+        try Data(#"{"pid":\#(alive),"sessionId":"open"}"#.utf8).write(to: registry.appending(path: "\(alive).json"))
+        try Data(#"{"pid":99999999,"sessionId":"crashed"}"#.utf8).write(to: registry.appending(path: "99999999.json"))
+
+        let sessions = await TranscriptScanner().sessions(in: [config], now: .now)
+
+        #expect(sessions.map { URL(fileURLWithPath: $0.id).lastPathComponent } == ["open.jsonl"])
     }
 }
