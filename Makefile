@@ -9,8 +9,10 @@ DMG = build/$(APP_NAME)$(if $(ARCH),-$(ARCH)).dmg
 RELEASE_ARCHS := arm64 x86_64 universal
 SPARKLE_BIN := .build/artifacts/sparkle/Sparkle/bin
 SPARKLE_ACCOUNT := claude-usage-bar
+WEBSITE := website
+WEBSITE_PNPM := pnpm --dir $(WEBSITE)
 
-.PHONY: build test icon app dist release-dmgs appcast updater-key run install uninstall clean
+.PHONY: build test icon app dist release-dmgs appcast updater-key run install uninstall website-install website-dev website-build website-lint clean
 
 build:
 	swift build -c release $(ARCH_FLAGS)
@@ -79,5 +81,20 @@ uninstall:
 	-pkill -x "$(APP_NAME)"
 	rm -rf "$(INSTALL_DIR)/$(APP_NAME).app"
 
+website-install:
+	$(WEBSITE_PNPM) install --frozen-lockfile
+
+website-dev: website-install
+	$(WEBSITE_PNPM) dev
+
+website-build: website-install
+	$(WEBSITE_PNPM) build
+
+website-lint: website-install
+	$(WEBSITE_PNPM) lint
+	$(WEBSITE_PNPM) typecheck
+	$(WEBSITE_PNPM) format:check
+
 clean:
 	rm -rf .build build
+	rm -rf $(WEBSITE)/.output $(WEBSITE)/.vercel $(WEBSITE)/.nitro $(WEBSITE)/.tanstack

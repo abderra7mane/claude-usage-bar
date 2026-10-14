@@ -69,6 +69,18 @@ One-time setup:
 
 To release, push a `v*` tag, e.g. `git tag v1.0.0 && git push origin v1.0.0`. The Release workflow runs the tests, builds the DMGs with the tag's version and publishes them with the appcasts. Local builds have no public key and don't check for updates.
 
+## Website
+
+`website/` is the project site, a [TanStack Start](https://tanstack.com/start) app prerendered for Vercel. It needs Node 24+ and pnpm.
+
+```sh
+make website-dev    # run it at http://localhost:3000
+make website-build  # build .vercel/output
+make website-lint   # eslint, prettier check, tsc
+```
+
+Vercel deploys it through its Git integration with `website` as the project's Root Directory; `website/vercel.json` holds the build settings.
+
 ## License
 
 [MIT](LICENSE)
