@@ -1,32 +1,31 @@
 import ClaudeUsageCore
 import SwiftUI
 
-/// One row per running Claude Code session with a live prompt cache: its cost and a bar that is full with an hour
-/// left and empty when the cache expires.
+/// Running Claude Code sessions with a live prompt cache, grouped by account. Each row shows the session's cost and a
+/// bar that is full with an hour left and empty when the cache expires.
 struct SessionsView: View {
-    private static let rowHeight: CGFloat = 52
     private static let visibleRows = 8
 
     @ObservedObject var monitor: CacheMonitor
+    @ObservedObject var settings: AppSettings
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
             let sessions = monitor.sessions.filter { !$0.isExpired(at: context.date) }
             VStack(alignment: .leading, spacing: 14) {
                 header(count: sessions.count)
-                Divider()
 
-                if sessions.isEmpty {
-                    Text("No Claude Code session has a live prompt cache.")
+                if settings.accounts.isEmpty {
+                    Text("No accounts yet. Add a Claude config folder in Settings.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } else if sessions.count > Self.visibleRows {
                     ScrollView {
-                        rows(sessions, now: context.date)
+                        accounts(sessions, now: context.date)
                     }
-                    .frame(height: Self.rowHeight * CGFloat(Self.visibleRows))
+                    .frame(height: SessionRow.height * CGFloat(Self.visibleRows))
                 } else {
-                    rows(sessions, now: context.date)
+                    accounts(sessions, now: context.date)
                 }
 
                 Text("A session's cache expires 1 hour after its last request. Send a message to keep it.")
@@ -41,11 +40,7 @@ struct SessionsView: View {
         HStack {
             Text("Claude Sessions").font(.headline)
             if count > 0 {
-                Text("\(count)")
-                    .font(.caption.weight(.medium))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(.quaternary, in: Capsule())
+                CountBadge(count: count)
             }
             Spacer()
             Button {
@@ -58,19 +53,72 @@ struct SessionsView: View {
         }
     }
 
-    private func rows(_ sessions: [CacheSession], now: Date) -> some View {
-        VStack(spacing: 0) {
-            ForEach(sessions) { session in
-                SessionRow(session: session, accountName: monitor.accountName(for: session), now: now)
-                    .frame(height: Self.rowHeight)
+    private func accounts(_ sessions: [CacheSession], now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(settings.accounts) { account in
+                Divider()
+                AccountSessions(account: account, sessions: sessions.filter(account.owns), now: now)
             }
         }
     }
 }
 
+private struct AccountSessions: View {
+    let account: Account
+    let sessions: [CacheSession]
+    let now: Date
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header
+
+            if sessions.isEmpty {
+                Text("No session has a live prompt cache.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(sessions) { session in
+                        SessionRow(session: session, now: now)
+                            .frame(height: SessionRow.height)
+                    }
+                }
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(account.name).font(.subheadline.weight(.bold))
+            Text(ConfigDirectory.displayPath(account.url))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer()
+            if !sessions.isEmpty {
+                CountBadge(count: sessions.count)
+            }
+        }
+    }
+}
+
+private struct CountBadge: View {
+    let count: Int
+
+    var body: some View {
+        Text("\(count)")
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(.quaternary, in: Capsule())
+    }
+}
+
 private struct SessionRow: View {
+    static let height: CGFloat = 52
+
     let session: CacheSession
-    let accountName: String?
     let now: Date
 
     var body: some View {
@@ -95,17 +143,14 @@ private struct SessionRow: View {
                 .monospacedDigit()
             }
             UsageBar(fraction: session.fraction(at: now), color: color)
-            Text(details)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+            if let path = session.workingDirectory {
+                Text(ConfigDirectory.displayPath(URL(fileURLWithPath: path)))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
         }
         .help("Expires at \(session.expiresAt.formatted(date: .omitted, time: .shortened))")
-    }
-
-    private var details: String {
-        let path = session.workingDirectory.map { ConfigDirectory.displayPath(URL(fileURLWithPath: $0)) }
-        return [accountName, path].compactMap { $0 }.joined(separator: " · ")
     }
 }
