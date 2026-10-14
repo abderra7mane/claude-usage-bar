@@ -77,6 +77,12 @@ final class CacheMonitor: ObservableObject {
     /// Only set when several accounts are configured.
     func accountName(for session: CacheSession) -> String? {
         guard settings.accounts.count > 1 else { return nil }
-        return settings.accounts.first { $0.url.standardizedFileURL == session.configDirectory.standardizedFileURL }?.name
+        return settings.accounts.first { $0.owns(session) }?.name
+    }
+}
+
+extension Account {
+    func owns(_ session: CacheSession) -> Bool {
+        url.standardizedFileURL == session.configDirectory.standardizedFileURL
     }
 }

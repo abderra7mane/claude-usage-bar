@@ -32,7 +32,7 @@ struct UsagePanel: View {
                 }
                 .padding(16)
             case .sessions:
-                SessionsView(monitor: model.cacheMonitor)
+                SessionsView(monitor: model.cacheMonitor, settings: settings)
                     .padding(16)
             }
 
